@@ -20,16 +20,9 @@ url = (
 def carregar_dados():
     df = pd.read_csv(url, dtype=str)
     df = df.apply(lambda x: x.str.strip() if x.dtype == "object" else x)
-    # converter datas
-    df['DATA_CAPTACAO'] = pd.to_datetime(
-        df['DATA_CAPTACAO'], dayfirst=True, errors='coerce'
-    )
-    df['DATA_INSPECAO'] = pd.to_datetime(
-        df['DATA_INSPECAO'], dayfirst=True, errors='coerce'
-    )
-    df['DATA_CONCLUSAO'] = pd.to_datetime(
-        df['DATA_CONCLUSAO'], dayfirst=True, errors='coerce'
-    )
+    df['DATA_CAPTACAO'] = pd.to_datetime(df['DATA_CAPTACAO'], dayfirst=True, errors='coerce')
+    df['DATA_INSPECAO'] = pd.to_datetime(df['DATA_INSPECAO'], dayfirst=True, errors='coerce')
+    df['DATA_CONCLUSAO'] = pd.to_datetime(df['DATA_CONCLUSAO'], dayfirst=True, errors='coerce')
     return df
 
 # Carregar dados
@@ -61,7 +54,7 @@ periodo = st.sidebar.date_input(
     help="Escolha o primeiro dia do mês desejado"
 )
 ano_sel = periodo.year
-nmes_sel = periodo.month
+mes_sel = periodo.month
 
 # -------------------------------
 # 🔍 Filtrar dados
@@ -71,7 +64,6 @@ df['CLASSIFICAÇÃO_DE_RISCO'] = df['CLASSIFICAÇÃO_DE_RISCO'].str.title()
 
 df_risco = df[df['CLASSIFICAÇÃO_DE_RISCO'] == risco]
 
-# Extrair ano e mês da captação
 df_risco['ANO'] = df_risco['DATA_CAPTACAO'].dt.year
 df_risco['MES'] = df_risco['DATA_CAPTACAO'].dt.month
 
@@ -84,14 +76,10 @@ df_sel = df_risco[(df_risco['ANO'] == ano_sel) & (df_risco['MES'] == mes_sel)]
 def calcula_indicador(grp, tipo):
     total = len(grp)
     if tipo.startswith("Inspeções"):
-        mask = (
-            (grp['DATA_INSPECAO'] - grp['DATA_CAPTACAO']).dt.days <= 30
-        )
+        mask = (grp['DATA_INSPECAO'] - grp['DATA_CAPTACAO']).dt.days <= 30
     else:
-        mask = (
-            (grp['DATA_CONCLUSAO'] - grp['DATA_CAPTACAO']).dt.days <= 90
-        )
-    cumpriram = grp[mask].shape[0]
+        mask = (grp['DATA_CONCLUSAO'] - grp['DATA_CAPTACAO']).dt.days <= 90
+    cumpriram = mask.sum()
     pct = (cumpriram / total * 100) if total > 0 else 0
     return pd.Series({
         'Entradas': total,
@@ -104,12 +92,10 @@ def calcula_indicador(grp, tipo):
 grupo = df_sel.groupby(['ANO', 'MES'])
 tabela = grupo.apply(lambda g: calcula_indicador(g, indicador)).reset_index()
 
-# Criar coluna 'Mês-Ano'
 tabela['Mês-Ano'] = tabela.apply(
     lambda row: f"{calendar.month_name[row['MES']]} {row['ANO']}", axis=1
 )
 
-# Organizar colunas finais
 tabela = tabela[['Mês-Ano', 'Entradas', 'Cumpriram', '%', 'Meta']]
 
 # -------------------------------
@@ -129,5 +115,5 @@ def gerar_excel(df_excel):
 st.download_button(
     label="📥 Download Excel",
     data=gerar_excel(tabela),
-    file_name=f"indicadores_{nmes_sel}_{ano_sel}.xlsx",
+    file_name=f"indicadores_{mes_sel}_{ano_sel}.xlsx",
     mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
