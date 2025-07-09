@@ -20,9 +20,37 @@ url = (
 def carregar_dados():
     df = pd.read_csv(url, dtype=str)
     df = df.apply(lambda x: x.str.strip() if x.dtype == "object" else x)
-    df['DATA_CAPTACAO'] = pd.to_datetime(df['DATA_CAPTACAO'], dayfirst=True, errors='coerce')
-    df['DATA_INSPECAO'] = pd.to_datetime(df['DATA_INSPECAO'], dayfirst=True, errors='coerce')
-    df['DATA_CONCLUSAO'] = pd.to_datetime(df['DATA_CONCLUSAO'], dayfirst=True, errors='coerce')
+
+    # Excluir carimbo, se existir
+    if 'Carimbo de data/hora' in df.columns:
+        df = df.drop(columns=['Carimbo de data/hora'])
+
+    # Detectar colunas de data por padrão
+    cols_lower = [c.lower() for c in df.columns]
+    try:
+        cap_idx = cols_lower.index('data de captação')
+    except ValueError:
+        # fallback: primeira coluna que contenha 'capta'
+        cap_idx = next(i for i, c in enumerate(cols_lower) if 'capta' in c)
+    col_cap = df.columns[cap_idx]
+
+    try:
+        insp_idx = cols_lower.index('data de inspeção')
+    except ValueError:
+        insp_idx = next(i for i, c in enumerate(cols_lower) if 'inspeção' in c)
+    col_insp = df.columns[insp_idx]
+
+    try:
+        concl_idx = cols_lower.index('data de conclusão')
+    except ValueError:
+        concl_idx = next(i for i, c in enumerate(cols_lower) if 'conclus' in c)
+    col_conc = df.columns[concl_idx]
+
+    # Converter datas
+    df['DATA_CAPTACAO'] = pd.to_datetime(df[col_cap], dayfirst=True, errors='coerce')
+    df['DATA_INSPECAO'] = pd.to_datetime(df[col_insp], dayfirst=True, errors='coerce')
+    df['DATA_CONCLUSAO'] = pd.to_datetime(df[col_conc], dayfirst=True, errors='coerce')
+
     return df
 
 # Carregar dados
@@ -35,7 +63,7 @@ st.sidebar.header("Filtros")
 
 risco = st.sidebar.selectbox(
     "🎯 Estratificação de Risco",
-    ["Baixo Risco", "Médio Risco", "Alto Risco"]
+    sorted(df['CLASSIFICAÇÃO DE RISCO'].dropna().unique())
 )
 
 indicador = st.sidebar.selectbox(
@@ -49,20 +77,20 @@ indicador = st.sidebar.selectbox(
 periodo = st.sidebar.date_input(
     "⏳ Selecionar mês/ano",
     value=datetime(datetime.now().year, datetime.now().month, 1),
-    min_value=datetime(2020, 1, 1),
+    min_value=df['DATA_CAPTACAO'].min().replace(day=1),
     max_value=datetime(datetime.now().year, datetime.now().month, 1),
     help="Escolha o primeiro dia do mês desejado"
 )
 ano_sel = periodo.year
-mes_sel = periodo.month
+nmes_sel = periodo.month
 
 # -------------------------------
 # 🔍 Filtrar dados
 # -------------------------------
 # Padronizar texto de risco
-df['CLASSIFICAÇÃO_DE_RISCO'] = df['CLASSIFICAÇÃO_DE_RISCO'].str.title()
+df['CLASSIFICAÇÃO_DE_RISCO'] = df['CLASSIFICAÇÃO_DE RISCO'].str.title()
 
-df_risco = df[df['CLASSIFICAÇÃO_DE_RISCO'] == risco]
+df_risco = df[df['CLASSIFICAÇÃO_DE RISCO'] == risco]
 
 df_risco['ANO'] = df_risco['DATA_CAPTACAO'].dt.year
 df_risco['MES'] = df_risco['DATA_CAPTACAO'].dt.month
@@ -79,7 +107,7 @@ def calcula_indicador(grp, tipo):
         mask = (grp['DATA_INSPECAO'] - grp['DATA_CAPTACAO']).dt.days <= 30
     else:
         mask = (grp['DATA_CONCLUSAO'] - grp['DATA_CAPTACAO']).dt.days <= 90
-    cumpriram = mask.sum()
+    cumpriram = int(mask.sum())
     pct = (cumpriram / total * 100) if total > 0 else 0
     return pd.Series({
         'Entradas': total,
@@ -115,6 +143,6 @@ def gerar_excel(df_excel):
 st.download_button(
     label="📥 Download Excel",
     data=gerar_excel(tabela),
-    file_name=f"indicadores_{mes_sel}_{ano_sel}.xlsx",
+    file_name=f"indicadores_{nmes_sel}_{ano_sel}.xlsx",
     mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
 )
