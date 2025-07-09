@@ -25,26 +25,13 @@ def carregar_dados():
     if 'Carimbo de data/hora' in df.columns:
         df = df.drop(columns=['Carimbo de data/hora'])
 
-    # Detectar colunas de data por padrão
-    cols_lower = [c.lower() for c in df.columns]
-    try:
-        cap_idx = cols_lower.index('data de captação')
-    except ValueError:
-        # fallback: primeira coluna que contenha 'capta'
-        cap_idx = next(i for i, c in enumerate(cols_lower) if 'capta' in c)
-    col_cap = df.columns[cap_idx]
+    # Detectar todas as colunas de data (exceto carimbo)
+    date_cols = [c for c in df.columns if 'data' in c.lower()]
+    if len(date_cols) < 3:
+        raise KeyError(f"Esperado ao menos 3 colunas de data no sheet, mas achei: {date_cols}")
 
-    try:
-        insp_idx = cols_lower.index('data de inspeção')
-    except ValueError:
-        insp_idx = next(i for i, c in enumerate(cols_lower) if 'inspeção' in c)
-    col_insp = df.columns[insp_idx]
-
-    try:
-        concl_idx = cols_lower.index('data de conclusão')
-    except ValueError:
-        concl_idx = next(i for i, c in enumerate(cols_lower) if 'conclus' in c)
-    col_conc = df.columns[concl_idx]
+    # Assumir ordem: captação, inspeção, conclusão
+    col_cap, col_insp, col_conc = date_cols[:3]
 
     # Converter datas
     df['DATA_CAPTACAO'] = pd.to_datetime(df[col_cap], dayfirst=True, errors='coerce')
