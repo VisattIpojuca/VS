@@ -1,16 +1,19 @@
 import streamlit as st
 import pandas as pd
+import plotly.express as px
 from datetime import datetime
 from io import BytesIO
 
 # ---🔐 LOGIN SIMPLES ---
 def login():
-    st.title("🔐 Painel de Indicadores da VISA de Ipojuca")
+    st.title("🔐 Painel de Indicadores da Vigilância Sanitária de Ipojuca")
     st.subheader("Acesso Restrito")
+
     with st.form("login_form"):
         username = st.text_input("Usuário")
         password = st.text_input("Senha", type="password")
         submit = st.form_submit_button("Entrar")
+
     if submit:
         if username == "admin" and password == "Ipojuca@2025*":
             st.session_state["autenticado"] = True
@@ -26,12 +29,12 @@ if not st.session_state["autenticado"]:
     login()
     st.stop()
 
-# --- CONFIGURAÇÃO DA PÁGINA ---
-st.set_page_config(page_title="Indicadores VISA Ipojuca", layout="wide")
-st.title("📊 Indicadores VISA - Tabela por Mês")
+# ========== CONFIGURAÇÃO ==========
+st.set_page_config(page_title="Painel VISA Ipojuca", layout="wide")
+st.title("📊 Indicadores por Mês - VISA Ipojuca")
 
-# --- CARREGAR DADOS ---
 @st.cache_data
+
 def carregar_dados():
     url = "https://docs.google.com/spreadsheets/d/1nKoAEXQ0QZOrIt-0CMvW5MOt9Q_FC8Ak/export?format=csv"
     df = pd.read_csv(url)
@@ -50,80 +53,84 @@ def carregar_dados():
     df['PREVISÃO CONCLUSÃO'] = pd.to_datetime(df['PREVISÃO CONCLUSÃO'], errors='coerce')
     df['PREVISAO_1A_INSP'] = pd.to_datetime(df['PREVISAO_1A_INSP'], errors='coerce')
 
+    df['MÊS'] = df['ENTRADA'].dt.month
+    df['ANO'] = df['ENTRADA'].dt.year
+
     return df
 
 df = carregar_dados()
 
-# --- FILTROS ---
-st.sidebar.header("Filtros")
+# ========== FILTROS ==========
+st.sidebar.header('Filtros')
 
-# Filtro 1: Estratificação de Risco
-risco = st.sidebar.selectbox("🔎 Estratificação de Risco", ["Todos", "Baixo Risco", "Médio Risco", "Alto Risco"])
+risco = st.sidebar.multiselect("Estratificação de Risco", ["Baixo Risco", "Médio Risco", "Alto Risco"])
 
-# Filtro 2: Indicador
-indicador = st.sidebar.selectbox("📌 Indicador", [
-    "Inspeções realizadas em até 30 dias após a captação do processo",
-    "Processos finalizados em até 90 dias após a captação do processo"
-])
+indicador = st.sidebar.selectbox(
+    "Indicador",
+    ["Inspeções realizadas em até 30 dias após a captação do processo",
+     "Processos finalizados em até 90 dias após a captação do processo"]
+)
 
-# Filtro 3: Período
-data_min = df['ENTRADA'].min()
-data_max = df['ENTRADA'].max()
-periodo = st.sidebar.date_input("📆 Período", [data_min, data_max], min_value=data_min, max_value=data_max)
+anos_disponiveis = sorted(df['ANO'].dropna().unique(), reverse=True)
+ano = st.sidebar.selectbox("Ano", anos_disponiveis)
 
-# --- APLICAR FILTROS ---
-df_filtrado = df.copy()
+meses_nome = {
+    1: "Janeiro", 2: "Fevereiro", 3: "Março", 4: "Abril",
+    5: "Maio", 6: "Junho", 7: "Julho", 8: "Agosto",
+    9: "Setembro", 10: "Outubro", 11: "Novembro", 12: "Dezembro"
+}
 
-# Filtrar por risco
-if risco != "Todos":
-    df_filtrado = df_filtrado[df_filtrado['CLASSIFICAÇÃO'].str.title() == risco]
+meses = st.sidebar.multiselect("Meses", options=list(meses_nome.keys()), format_func=lambda x: meses_nome[x])
 
-# Filtrar por período
-if len(periodo) == 2:
-    df_filtrado = df_filtrado[(df_filtrado['ENTRADA'] >= periodo[0]) & (df_filtrado['ENTRADA'] <= periodo[1])]
+# Aplicar filtros
+filtro_df = df[(df['ANO'] == ano) & (df['MÊS'].isin(meses))]
+if risco:
+    filtro_df = filtro_df[filtro_df['CLASSIFICAÇÃO'].str.title().isin(risco)]
 
-# Adiciona colunas auxiliares
-df_filtrado['ANO_MES'] = df_filtrado['ENTRADA'].dt.to_period("M").astype(str)
+# ========== CÁLCULOS ==========
+resultado = []
 
-# --- AGRUPAMENTO ---
-def calcula(grp):
-    total = len(grp)
+for mes in sorted(filtro_df['MÊS'].unique()):
+    nome_mes = meses_nome[mes]
+    df_mes = filtro_df[filtro_df['MÊS'] == mes]
+
     if indicador == "Inspeções realizadas em até 30 dias após a captação do processo":
-        validos = grp[grp['NUMERADOR_1'] == 1]
-        num = len(validos)
-    elif indicador == "Processos finalizados em até 90 dias após a captação do processo":
-        grupo_valido = grp[
-            ~grp['SITUAÇÃO'].isin(["EM INSPEÇÃO", "AGUARDANDO 1ª INSPEÇÃO", "PENDÊNCIA DOCUMENTAL"])
-        ]
-        grupo_valido = grupo_valido[grupo_valido['DATA_CONCLUSAO'] <= grupo_valido['PREVISÃO CONCLUSÃO']]
-        num = len(grupo_valido)
+        df_validos = df_mes[~df_mes['SITUAÇÃO'].isin(["AGUARDANDO 1ª INSPEÇÃO", "PENDÊNCIA DOCUMENTAL"])]
+        df_numerador = df_validos[df_validos['1ª INSPEÇÃO'] <= df_validos['PREVISAO_1A_INSP']]
+        num = len(df_numerador)
+        den = len(df_validos)
     else:
-        num = 0
-    perc = (num / total) * 100 if total > 0 else 0
-    return pd.Series({
-        'Total Processos': total,
-        'No Prazo': num,
-        '% No Prazo': round(perc, 2)
+        df_validos = df_mes[~df_mes['SITUAÇÃO'].isin(["EM INSPEÇÃO", "AGUARDANDO 1ª INSPEÇÃO", "PENDÊNCIA DOCUMENTAL"])]
+        df_numerador = df_validos[df_validos['DATA_CONCLUSAO'] <= df_validos['PREVISÃO CONCLUSÃO']]
+        num = len(df_numerador)
+        den = len(df_validos)
+
+    perc = (num / den * 100) if den > 0 else 0
+    resultado.append({
+        "Mês": nome_mes,
+        "Numerador": num,
+        "Denominador": den,
+        "Percentual (%)": round(perc, 2)
     })
 
-resultado = df_filtrado.groupby('ANO_MES').apply(calcula).reset_index()
+# ========== EXIBIÇÃO ==========
+st.subheader(f"Resultado: {indicador}")
 
-# --- EXIBIR TABELA ---
-st.subheader(f"📅 Desempenho Mensal: {indicador}")
-st.dataframe(resultado)
+df_resultado = pd.DataFrame(resultado)
+st.dataframe(df_resultado)
 
-# --- DOWNLOAD ---
-def baixar_excel(df_resultado):
-    buffer = BytesIO()
-    with pd.ExcelWriter(buffer, engine='xlsxwriter') as writer:
-        df_resultado.to_excel(writer, index=False, sheet_name='Indicadores')
-    return buffer.getvalue()
+# ========== DOWNLOAD ==========
+def gerar_excel(dataframe):
+    output = BytesIO()
+    with pd.ExcelWriter(output, engine='xlsxwriter') as writer:
+        dataframe.to_excel(writer, index=False, sheet_name='Dados Filtrados')
+    return output.getvalue()
 
 st.download_button(
-    "📥 Baixar como Excel",
-    data=baixar_excel(resultado),
-    file_name="indicadores_visa_mes_a_mes.xlsx",
+    label="📥 Baixar dados usados no cálculo",
+    data=gerar_excel(filtro_df),
+    file_name="dados_filtrados_indicadores.xlsx",
     mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
 )
 
-st.caption("Vigilância Sanitária de Ipojuca · 2025")
+st.caption("Vigilância Sanitária de Ipojuca - 2025")
