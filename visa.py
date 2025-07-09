@@ -13,7 +13,8 @@ st.title("📋 Indicador da Vigilância Sanitária — Mensal")
 # -------------------------------
 url = (
     'https://docs.google.com/spreadsheets/d/'
-    '1CP6RD8UlHzB6FB7x8fhS3YZB0rVGPyf6q99PNp4iAGQ/export?format=csv'
+    '1nKoAEXQ0QZOrIt-0CMvW5MOt9Q_FC8Ak'
+    '/export?format=csv&gid=502962216'
 )
 
 @st.cache_data
@@ -135,4 +136,3 @@ st.download_button(
     data=gerar_excel(tabela),
     file_name=f"indicadores_{nmes_sel}_{ano_sel}.xlsx",
     mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-)
