@@ -25,10 +25,13 @@ def carregar_dados():
     if 'Carimbo de data/hora' in df.columns:
         df = df.drop(columns=['Carimbo de data/hora'])
 
-    # Detectar todas as colunas de data (exceto carimbo)
+        # Detectar todas as colunas de data (exceto carimbo)
     date_cols = [c for c in df.columns if 'data' in c.lower()]
+    # Para ajudar no debug, mostramos as colunas encontradas
+    st.write("Colunas encontradas contendo 'data':", date_cols)
     if len(date_cols) < 3:
-        raise KeyError(f"Esperado ao menos 3 colunas de data no sheet, mas achei: {date_cols}")
+        st.error(f"Esperado ao menos 3 colunas de data, mas achei: {date_cols}")
+        st.stop()
 
     # Assumir ordem: captação, inspeção, conclusão
     col_cap, col_insp, col_conc = date_cols[:3]
