@@ -1,32 +1,8 @@
 import streamlit as st
 import pandas as pd
-import plotly.express as px
+import calendar
+from io import BytesIO
 from datetime import datetime
-
-# ---🔐 LOGIN SIMPLES ---
-def login():
-    st.title("🔐 Painel de Monitoramento de Indicadores da Vigilância Sanitária de Ipojuca")
-    st.subheader("Acesso Restrito")
-
-    with st.form("login_form"):
-        username = st.text_input("Usuário")
-        password = st.text_input("Senha", type="password")
-        submit = st.form_submit_button("Entrar")
-
-    if submit:
-        if username == "admin" and password == "Ipojuca@2025*":
-            st.session_state["autenticado"] = True
-            st.success("✅ Login realizado com sucesso!")
-            st.rerun()
-        else:
-            st.error("❌ Usuário ou senha incorretos.")
-
-if "autenticado" not in st.session_state:
-    st.session_state["autenticado"] = False
-
-if not st.session_state["autenticado"]:
-    login()
-    st.stop()
 
 # Configuração
 st.set_page_config(page_title="Painel Mensal VISA", layout="wide")
