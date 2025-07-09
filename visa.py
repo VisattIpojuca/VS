@@ -25,16 +25,10 @@ def carregar_dados():
     if 'Carimbo de data/hora' in df.columns:
         df = df.drop(columns=['Carimbo de data/hora'])
 
-        # Detectar todas as colunas de data (exceto carimbo)
-    date_cols = [c for c in df.columns if 'data' in c.lower()]
-    # Para ajudar no debug, mostramos as colunas encontradas
-    st.write("Colunas encontradas contendo 'data':", date_cols)
-    if len(date_cols) < 3:
-        st.error(f"Esperado ao menos 3 colunas de data, mas achei: {date_cols}")
-        st.stop()
-
-    # Assumir ordem: captação, inspeção, conclusão
-    col_cap, col_insp, col_conc = date_cols[:3]
+    # Mapear colunas explicitamente conforme planilha de origem
+    col_cap = 'ENTRADA'            # coluna F: data de captação
+    col_insp = '1ª INSPEÇÃO'       # coluna J: data da primeira inspeção
+    col_conc = 'DATA CONCLUSÃO'    # coluna N: data de conclusão
 
     # Converter datas
     df['DATA_CAPTACAO'] = pd.to_datetime(df[col_cap], dayfirst=True, errors='coerce')
@@ -51,11 +45,13 @@ df = carregar_dados()
 # -------------------------------
 st.sidebar.header("Filtros")
 
+# Estratificação de risco (coluna G)
 risco = st.sidebar.selectbox(
     "🎯 Estratificação de Risco",
     sorted(df['CLASSIFICAÇÃO DE RISCO'].dropna().unique())
 )
 
+# Indicador
 indicador = st.sidebar.selectbox(
     "📊 Indicador",
     [
@@ -64,6 +60,7 @@ indicador = st.sidebar.selectbox(
     ]
 )
 
+# Mês/Ano
 periodo = st.sidebar.date_input(
     "⏳ Selecionar mês/ano",
     value=datetime(datetime.now().year, datetime.now().month, 1),
@@ -78,9 +75,10 @@ nmes_sel = periodo.month
 # 🔍 Filtrar dados
 # -------------------------------
 # Padronizar texto de risco
-df['CLASSIFICAÇÃO_DE_RISCO'] = df['CLASSIFICAÇÃO_DE RISCO'].str.title()
 
-df_risco = df[df['CLASSIFICAÇÃO_DE RISCO'] == risco]
+df['CLASSIFICAÇÃO DE RISCO'] = df['CLASSIFICAÇÃO DE RISCO'].str.title()
+
+df_risco = df[df['CLASSIFICAÇÃO DE RISCO'] == risco]
 
 df_risco['ANO'] = df_risco['DATA_CAPTACAO'].dt.year
 df_risco['MES'] = df_risco['DATA_CAPTACAO'].dt.month
