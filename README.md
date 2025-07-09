@@ -1,37 +1,43 @@
-# 🦠 Painel de Indicadores da Vigilância Sanitária de Ipojuca
+# Painel de Inspeções - Vigilância Sanitária de Ipojuca
 
-Este repositório contém o painel de indicadores mensais da Vigilância Sanitária de Ipojuca, publicado no Streamlit.
+## 🔍 Funcionalidades
 
-## 🔗 Acesse o painel online:
-👉 [Painel VISA no Streamlit](https://painelvisa.streamlit.app/)
+- Filtros dinâmicos por:
+  - Protocolo
+  - CNPJ
+  - Estabelecimento
+  - Atividade
+  - Classificação
+  - Território
+  - Situação (ordenado alfabeticamente)
+  - Entrada (seletor de datas)
+
+- Resumo da seleção quando escolhido um único protocolo.
+
+- Indicadores de Desempenho:
+  - **🕒 1ª Visita em até 30 dias**
+    - Considera processos cuja 1ª inspeção ocorreu até a data prevista.
+    - Exclui situações: "AGUARDANDO 1ª INSPEÇÃO" e "PENDÊNCIA DOCUMENTAL".
+  - **📜 Processo finalizado em até 90 dias**
+    - Considera processos concluídos até a previsão de conclusão.
+    - Exclui situações: "EM INSPEÇÃO", "AGUARDANDO 1ª INSPEÇÃO" e "PENDÊNCIA DOCUMENTAL".
+
+- Gráfico das justificativas dos **INDEFERIDOS**.
+
+- Visualização de:
+  - Dados filtrados
+  - Gráficos interativos
+
+- Download de relatório Excel com:
+  - Dados Filtrados
+  - Resumo dos Indicadores
+  - Justificativas dos Indeferidos
 
 ---
 
-## 🚀 Funcionalidades Principais
+## 🚀 Como Executar
 
-- 🎯 Filtragem por Estratificação de Risco (Baixo, Médio, Alto)
-- 📊 Seleção de Indicador:
-  - Inspeções realizadas em até 30 dias após captação do processo
-  - Processos finalizados em até 90 dias após captação do processo
-- ⏳ Seleção de mês/ano para visualização
-- 📋 Tabela consolidada de indicadores mês a mês:
-  - Entradas
-  - Cumprimentos do indicador
-  - Percentual de cumprimento
-  - Meta fixa (80%)
-- 📥 Download dos dados em Excel
-
----
-
-## 📦 Como executar localmente
-
-1. Clone este repositório:
+1. Clone este repositório.
+2. Instale as dependências:
    ```bash
-   git clone https://github.com/seuusuario/painel-visa-indicadores.git
-   cd painel-visa-indicadores
-
- 2. Instale as dependências:
- pip install -r requirements.txt
-
- 3. Rode o Streamlit:
- streamlit run visa.py
+   pip install -r requirements.txt
