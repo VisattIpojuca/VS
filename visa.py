@@ -21,19 +21,30 @@ def carregar_dados():
     df = pd.read_csv(url, dtype=str)
     df = df.apply(lambda x: x.str.strip() if x.dtype == "object" else x)
 
-    # Excluir carimbo, se existir
-    if 'Carimbo de data/hora' in df.columns:
-        df = df.drop(columns=['Carimbo de data/hora'])
+    # Exibir colunas disponíveis para debug
+    st.write("Colunas disponíveis no sheet:", list(df.columns))
 
-    # Mapear colunas explicitamente conforme planilha de origem
-    col_cap = 'ENTRADA'            # coluna F: data de captação
-    col_insp = '1ª INSPEÇÃO'       # coluna J: data da primeira inspeção
-    col_conc = 'DATA CONCLUSÃO'    # coluna N: data de conclusão
+    # Mapeamento esperado de colunas
+    expected = {
+        'DATA_CAPTACAO': 'ENTRADA',           # Coluna F: data de captação
+        'DATA_INSPECAO': '1ª INSPEÇÃO',       # Coluna J: primeira inspeção
+        'DATA_CONCLUSAO': 'DATA CONCLUSÃO',   # Coluna N: conclusão
+        'CLASS_RISCO': 'CLASSIFICAÇÃO DE RISCO'  # Coluna G: risco
+    }
+
+    # Verificar presença das colunas esperadas
+    for key, name in expected.items():
+        if name not in df.columns:
+            st.error(f"Coluna esperada '{name}' não encontrada. Disponíveis: {list(df.columns)}")
+            st.stop()
 
     # Converter datas
-    df['DATA_CAPTACAO'] = pd.to_datetime(df[col_cap], dayfirst=True, errors='coerce')
-    df['DATA_INSPECAO'] = pd.to_datetime(df[col_insp], dayfirst=True, errors='coerce')
-    df['DATA_CONCLUSAO'] = pd.to_datetime(df[col_conc], dayfirst=True, errors='coerce')
+    df['DATA_CAPTACAO'] = pd.to_datetime(df[expected['DATA_CAPTACAO']], dayfirst=True, errors='coerce')
+    df['DATA_INSPECAO'] = pd.to_datetime(df[expected['DATA_INSPECAO']], dayfirst=True, errors='coerce')
+    df['DATA_CONCLUSAO'] = pd.to_datetime(df[expected['DATA_CONCLUSAO']], dayfirst=True, errors='coerce')
+
+    # Padronizar coluna de risco
+    df['CLASS_RISCO'] = df[expected['CLASS_RISCO']].str.title()
 
     return df
 
@@ -45,13 +56,11 @@ df = carregar_dados()
 # -------------------------------
 st.sidebar.header("Filtros")
 
-# Estratificação de risco (coluna G)
 risco = st.sidebar.selectbox(
     "🎯 Estratificação de Risco",
-    sorted(df['CLASSIFICAÇÃO DE RISCO'].dropna().unique())
+    sorted(df['CLASS_RISCO'].dropna().unique())
 )
 
-# Indicador
 indicador = st.sidebar.selectbox(
     "📊 Indicador",
     [
@@ -60,7 +69,6 @@ indicador = st.sidebar.selectbox(
     ]
 )
 
-# Mês/Ano
 periodo = st.sidebar.date_input(
     "⏳ Selecionar mês/ano",
     value=datetime(datetime.now().year, datetime.now().month, 1),
@@ -74,16 +82,10 @@ nmes_sel = periodo.month
 # -------------------------------
 # 🔍 Filtrar dados
 # -------------------------------
-# Padronizar texto de risco
-
-df['CLASSIFICAÇÃO DE RISCO'] = df['CLASSIFICAÇÃO DE RISCO'].str.title()
-
-df_risco = df[df['CLASSIFICAÇÃO DE RISCO'] == risco]
-
+df_risco = df[df['CLASS_RISCO'] == risco]
 df_risco['ANO'] = df_risco['DATA_CAPTACAO'].dt.year
 df_risco['MES'] = df_risco['DATA_CAPTACAO'].dt.month
 
-# Filtrar por mês e ano selecionados
 df_sel = df_risco[(df_risco['ANO'] == ano_sel) & (df_risco['MES'] == mes_sel)]
 
 # -------------------------------
