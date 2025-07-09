@@ -117,3 +117,4 @@ st.download_button(
     data=gerar_excel(tabela),
     file_name=f"indicadores_{mes_sel}_{ano_sel}.xlsx",
     mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+)
