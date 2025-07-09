@@ -11,16 +11,25 @@ st.title("📋 Indicador da Vigilância Sanitária — Mensal")
 # -------------------------------
 # 📥 Fonte de dados
 # -------------------------------
-url = 'https://docs.google.com/spreadsheets/d/1CP6RD8UlHzB6FB7x8fhS3YZB0rVGPyf6q99PNp4iAGQ/export?format=csv'
+url = (
+    'https://docs.google.com/spreadsheets/d/'
+    '1CP6RD8UlHzB6FB7x8fhS3YZB0rVGPyf6q99PNp4iAGQ/export?format=csv'
+)
 
 @st.cache_data
 def carregar_dados():
     df = pd.read_csv(url, dtype=str)
     df = df.apply(lambda x: x.str.strip() if x.dtype == "object" else x)
     # converter datas
-    df['DATA_CAPTACAO'] = pd.to_datetime(df['DATA_CAPTACAO'], dayfirst=True, errors='coerce')
-    df['DATA_INSPECAO'] = pd.to_datetime(df['DATA_INSPECAO'], dayfirst=True, errors='coerce')
-    df['DATA_CONCLUSAO'] = pd.to_datetime(df['DATA_CONCLUSAO'], dayfirst=True, errors='coerce')
+    df['DATA_CAPTACAO'] = pd.to_datetime(
+        df['DATA_CAPTACAO'], dayfirst=True, errors='coerce'
+    )
+    df['DATA_INSPECAO'] = pd.to_datetime(
+        df['DATA_INSPECAO'], dayfirst=True, errors='coerce'
+    )
+    df['DATA_CONCLUSAO'] = pd.to_datetime(
+        df['DATA_CONCLUSAO'], dayfirst=True, errors='coerce'
+    )
     return df
 
 # Carregar dados
@@ -57,14 +66,16 @@ nmes_sel = periodo.month
 # -------------------------------
 # 🔍 Filtrar dados
 # -------------------------------
-# padronizar texto
+# Padronizar texto de risco
 df['CLASSIFICAÇÃO_DE_RISCO'] = df['CLASSIFICAÇÃO_DE_RISCO'].str.title()
 
 df_risco = df[df['CLASSIFICAÇÃO_DE_RISCO'] == risco]
 
+# Extrair ano e mês da captação
 df_risco['ANO'] = df_risco['DATA_CAPTACAO'].dt.year
-ndf_risco['MES'] = df_risco['DATA_CAPTACAO'].dt.month
+df_risco['MES'] = df_risco['DATA_CAPTACAO'].dt.month
 
+# Filtrar por mês e ano selecionados
 df_sel = df_risco[(df_risco['ANO'] == ano_sel) & (df_risco['MES'] == mes_sel)]
 
 # -------------------------------
@@ -73,9 +84,13 @@ df_sel = df_risco[(df_risco['ANO'] == ano_sel) & (df_risco['MES'] == mes_sel)]
 def calcula_indicador(grp, tipo):
     total = len(grp)
     if tipo.startswith("Inspeções"):
-        mask = (grp['DATA_INSPECAO'] - grp['DATA_CAPTACAO']).dt.days <= 30
+        mask = (
+            (grp['DATA_INSPECAO'] - grp['DATA_CAPTACAO']).dt.days <= 30
+        )
     else:
-        mask = (grp['DATA_CONCLUSAO'] - grp['DATA_CAPTACAO']).dt.days <= 90
+        mask = (
+            (grp['DATA_CONCLUSAO'] - grp['DATA_CAPTACAO']).dt.days <= 90
+        )
     cumpriram = grp[mask].shape[0]
     pct = (cumpriram / total * 100) if total > 0 else 0
     return pd.Series({
@@ -85,12 +100,17 @@ def calcula_indicador(grp, tipo):
         'Meta': '80%'
     })
 
-grupo = df_sel.groupby(['ANO','MES'])
+# Agrupar e aplicar cálculo
+grupo = df_sel.groupby(['ANO', 'MES'])
 tabela = grupo.apply(lambda g: calcula_indicador(g, indicador)).reset_index()
+
+# Criar coluna 'Mês-Ano'
 tabela['Mês-Ano'] = tabela.apply(
     lambda row: f"{calendar.month_name[row['MES']]} {row['ANO']}", axis=1
 )
-tabela = tabela[['Mês-Ano','Entradas','Cumpriram','%','Meta']]
+
+# Organizar colunas finais
+tabela = tabela[['Mês-Ano', 'Entradas', 'Cumpriram', '%', 'Meta']]
 
 # -------------------------------
 # 📋 Exibição
@@ -100,14 +120,14 @@ st.table(tabela)
 # -------------------------------
 # 📥 Download
 # -------------------------------
-def gerar_excel(df):
+def gerar_excel(df_excel):
     output = BytesIO()
-    with pd.ExcelWriter(output, engine='xlsxwriter') as w:
-        df.to_excel(w, index=False, sheet_name='Indicadores')
+    with pd.ExcelWriter(output, engine='xlsxwriter') as writer:
+        df_excel.to_excel(writer, index=False, sheet_name='Indicadores')
     return output.getvalue()
 
 st.download_button(
     label="📥 Download Excel",
     data=gerar_excel(tabela),
-    file_name=f"indicadores_{mes_sel}_{ano_sel}.xlsx",
+    file_name=f"indicadores_{nmes_sel}_{ano_sel}.xlsx",
     mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
